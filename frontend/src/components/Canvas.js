@@ -24,7 +24,7 @@ function Canvas({ nodes, onAddNode, onNodeMove, onNodeSelect, onNodeDelete }) {
         backgroundImage: 'linear-gradient(to right, #f0f0f0 1px, transparent 1px), linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)',
         width: '100%',
         height: '100%',
-        minHeight: '1000px', // Добавьте это, чтобы сделать канвас больше по вертикали
+        minHeight: '1000px',
     };
 
     return (
