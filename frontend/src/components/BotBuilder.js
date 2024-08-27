@@ -1,4 +1,3 @@
-// BotBuilder.js
 import React, { useState, useCallback, useEffect } from 'react';
 import ReactFlow, {
     addEdge,
@@ -57,7 +56,7 @@ function BotBuilder() {
             id: `${Date.now()}`,
             type: 'buttonNode',
             position,
-            data: { type: item.type, content: [] },
+            data: { type: item.type, content: [], buttons: [] },
         };
 
         setNodes((nds) => [...nds, newNode]);
@@ -77,8 +76,15 @@ function BotBuilder() {
         setSelectedNode(node);
     }, []);
 
+    const updateNode = useCallback((updatedNode) => {
+        setNodes((nds) =>
+            nds.map((node) => (node.id === updatedNode.id ? updatedNode : node))
+        );
+        setSelectedNode(null);
+    }, [setNodes]);
+
     return (
-        <div style={{ display: 'flex', height: '100vh' }}>
+        <div style={{ display: 'flex', height: '100vh', position: 'relative' }}>
             <Sidebar />
             <div
                 ref={drop}
@@ -86,7 +92,6 @@ function BotBuilder() {
                     width: '100%',
                     height: '100%',
                     backgroundColor: isOver ? 'lightblue' : 'white',
-                    position: 'relative',
                 }}
             >
                 <ReactFlow
@@ -103,24 +108,19 @@ function BotBuilder() {
                     <Controls />
                     <Background />
                 </ReactFlow>
-                {selectedNode && (
-                    <NodeMenu
-                        node={selectedNode}
-                        onUpdate={(updatedNode) => {
-                            setNodes((nds) =>
-                                nds.map((node) => (node.id === updatedNode.id ? updatedNode : node))
-                            );
-                            setSelectedNode(null);
-                        }}
-                        onClose={() => setSelectedNode(null)}
-                        onDelete={(id) => {
-                            setNodes((nds) => nds.filter((node) => node.id !== id));
-                            setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
-                            setSelectedNode(null);
-                        }}
-                    />
-                )}
             </div>
+            {selectedNode && (
+                <NodeMenu
+                    node={selectedNode}
+                    onUpdate={updateNode}
+                    onClose={() => setSelectedNode(null)}
+                    onDelete={(id) => {
+                        setNodes((nds) => nds.filter((node) => node.id !== id));
+                        setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
+                        setSelectedNode(null);
+                    }}
+                />
+            )}
         </div>
     );
 }
