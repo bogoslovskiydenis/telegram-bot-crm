@@ -1,70 +1,127 @@
-import React, { useState } from 'react';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+// BotBuilder.js
+import React, { useState, useCallback, useEffect } from 'react';
+import ReactFlow, {
+    addEdge,
+    MiniMap,
+    Controls,
+    Background,
+    useNodesState,
+    useEdgesState
+} from 'react-flow-renderer';
+import { useDrop } from 'react-dnd';
 import Sidebar from './Sidebar';
-import Canvas from './Canvas';
 import NodeMenu from './NodeMenu';
+import ButtonNode from './ButtonNode';
+
+const nodeTypes = {
+    buttonNode: ButtonNode,
+};
 
 function BotBuilder() {
-    const [nodes, setNodes] = useState([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [selectedNode, setSelectedNode] = useState(null);
 
-    const handleAddNode = (type, left, top) => {
-        const newNode = {
-            id: Date.now(),
-            type,
-            left,
-            top,
-            config: {}
+    useEffect(() => {
+        // Load nodes and edges from localStorage on component mount
+        const savedNodes = JSON.parse(localStorage.getItem('nodes')) || [];
+        const savedEdges = JSON.parse(localStorage.getItem('edges')) || [];
+        setNodes(savedNodes);
+        setEdges(savedEdges);
+    }, []);
+
+    useEffect(() => {
+        // Save nodes and edges to localStorage on every change
+        localStorage.setItem('nodes', JSON.stringify(nodes));
+        localStorage.setItem('edges', JSON.stringify(edges));
+    }, [nodes, edges]);
+
+    const onDrop = useCallback((item, monitor) => {
+        const canvasBounds = monitor.getClientOffset();
+        const position = {
+            x: canvasBounds.x - 200,
+            y: canvasBounds.y - 50,
         };
-        setNodes([...nodes, newNode]);
-    };
 
-    const handleNodeMove = (id, left, top) => {
-        setNodes(nodes.map(node =>
-            node.id === id ? { ...node, left, top } : node
-        ));
-    };
-
-    const handleNodeSelect = (node) => {
-        setSelectedNode(node);
-    };
-
-    const handleNodeUpdate = (updatedNode) => {
-        setNodes(nodes.map(node =>
-            node.id === updatedNode.id ? updatedNode : node
-        ));
-        setSelectedNode(null);
-    };
-
-    const handleNodeDelete = (id) => {
-        setNodes(nodes.filter(node => node.id !== id));
-        if (selectedNode && selectedNode.id === id) {
-            setSelectedNode(null);
+        if (nodes.length === 0 && item.type !== 'botConfig') {
+            alert('First node must be Bot Configuration');
+            return;
         }
-    };
+
+        if (nodes.length > 0 && item.type === 'botConfig') {
+            alert('Bot Configuration can only be added once');
+            return;
+        }
+
+        const newNode = {
+            id: `${Date.now()}`,
+            type: 'buttonNode',
+            position,
+            data: { type: item.type, content: [] },
+        };
+
+        setNodes((nds) => [...nds, newNode]);
+    }, [setNodes, nodes]);
+
+    const [{ isOver }, drop] = useDrop({
+        accept: 'BUTTON',
+        drop: onDrop,
+        collect: (monitor) => ({
+            isOver: !!monitor.isOver(),
+        }),
+    });
+
+    const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+
+    const onNodeClick = useCallback((event, node) => {
+        setSelectedNode(node);
+    }, []);
 
     return (
-        <DndProvider backend={HTML5Backend}>
-            <div style={{ display: 'flex', height: '100vh' }}>
-                <Sidebar />
-                <Canvas
+        <div style={{ display: 'flex', height: '100vh' }}>
+            <Sidebar />
+            <div
+                ref={drop}
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: isOver ? 'lightblue' : 'white',
+                    position: 'relative',
+                }}
+            >
+                <ReactFlow
                     nodes={nodes}
-                    onAddNode={handleAddNode}
-                    onNodeMove={handleNodeMove}
-                    onNodeSelect={handleNodeSelect}
-                    onNodeDelete={handleNodeDelete}
-                />
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onNodeClick={onNodeClick}
+                    fitView
+                    nodeTypes={nodeTypes}
+                >
+                    <MiniMap />
+                    <Controls />
+                    <Background />
+                </ReactFlow>
                 {selectedNode && (
                     <NodeMenu
                         node={selectedNode}
-                        onUpdate={handleNodeUpdate}
+                        onUpdate={(updatedNode) => {
+                            setNodes((nds) =>
+                                nds.map((node) => (node.id === updatedNode.id ? updatedNode : node))
+                            );
+                            setSelectedNode(null);
+                        }}
                         onClose={() => setSelectedNode(null)}
-                        onDelete={handleNodeDelete}
+                        onDelete={(id) => {
+                            setNodes((nds) => nds.filter((node) => node.id !== id));
+                            setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
+                            setSelectedNode(null);
+                        }}
                     />
                 )}
             </div>
-        </DndProvider>
+        </div>
     );
 }
 
